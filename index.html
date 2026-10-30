@@ -1,10 +1,94 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>Мой первый сайт</title>
-</head>
-<body>
-    <h1>Привет! Мой сайт на GitHub Pages работает.</h1>
-</body>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f7f5">
+    <meta name="description" content="Mini-brain — ваш помощник для идей, текстов и сложных вопросов.">
+    <title>Mini-brain — ИИ-помощник</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+    <script src="config.js"></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar" aria-label="История чатов">
+        <div class="sidebar-top">
+          <a class="brand" href="./" aria-label="Mini-brain, главная">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 32 32"><path d="M16 4.5c-5.8 0-10.5 4.4-10.5 9.9 0 3.2 1.7 5.9 4.3 7.7v5.4l6.2-3.1c5.8 0 10.5-4.4 10.5-9.9S21.8 4.5 16 4.5Z"/><path d="M11 14.5h.1m4.9 0h.1m4.9 0h.1M12 19c1.1 1 2.4 1.5 4 1.5s2.9-.5 4-1.5"/></svg>
+            </span>
+            <span>mini-brain</span>
+          </a>
+          <button class="icon-button mobile-close" id="closeSidebar" aria-label="Закрыть меню">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+        <button class="new-chat-button" id="newChat">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Новый чат</span>
+          <span class="shortcut">⌘ K</span>
+        </button>
+        <div class="history-heading">Недавние</div>
+        <nav class="chat-list" id="chatList" aria-label="Список чатов"></nav>
+        <div class="sidebar-bottom">
+          <div class="sidebar-note">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span>Ваши чаты хранятся<br>только в этом браузере</span>
+          </div>
+          <div class="profile">
+            <span class="avatar">m</span>
+            <span class="profile-copy"><strong>Мой Mini-brain</strong><small>Личный помощник</small></span>
+            <span class="profile-menu" aria-hidden="true">···</span>
+          </div>
+        </div>
+      </aside>
+
+      <div class="sidebar-scrim" id="sidebarScrim"></div>
+      <main class="main-panel">
+        <header class="topbar">
+          <button class="icon-button menu-button" id="openSidebar" aria-label="Открыть список чатов">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+          <div class="model-picker">
+            <span>Mini-brain</span>
+            <span class="model-badge">AI</span>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+          </div>
+          <button class="share-button" id="shareChat" title="Скопировать адрес страницы">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V3m-4 4 4-4 4 4M4 11v5h12v-5"/></svg>
+            <span>Поделиться</span>
+          </button>
+        </header>
+
+        <section class="conversation" aria-label="Диалог с Mini-brain">
+          <div class="messages" id="messages" aria-live="polite" aria-relevant="additions text"></div>
+        </section>
+
+        <footer class="composer-area">
+          <div class="composer-wrap">
+            <form class="composer" id="chatForm">
+              <label class="sr-only" for="messageInput">Сообщение для Mini-brain</label>
+              <textarea id="messageInput" rows="1" maxlength="12000" placeholder="Спросите о чём угодно..." autocomplete="off"></textarea>
+              <div class="composer-controls">
+                <div class="composer-tools">
+                  <button class="tool-button" type="button" id="attachButton" aria-label="Прикрепить файл" title="Файлы пока не поддерживаются">
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7.5 10.8 5-5a3 3 0 0 1 4.2 4.2l-6.8 6.8a4.5 4.5 0 0 1-6.4-6.4l6.8-6.8"/></svg>
+                  </button>
+                  <span class="tool-divider"></span>
+                  <span class="composer-hint">Уточняйте, если нужен более точный ответ</span>
+                </div>
+                <button class="send-button" id="sendButton" type="submit" aria-label="Отправить сообщение" disabled>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 15V4m-5 5 5-5 5 5"/></svg>
+                </button>
+              </div>
+            </form>
+            <p class="disclaimer">Mini-brain может ошибаться. Проверяйте важную информацию.</p>
+          </div>
+        </footer>
+      </main>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </div>
+  </body>
 </html>
