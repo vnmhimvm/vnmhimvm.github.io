@@ -26,6 +26,12 @@
   let chats = loadChats();
   let activeId = chats[0]?.id ?? null;
   let busy = false;
+  let busyChatId = null;
+  let requestStartedAt = 0;
+  let retryUntil = 0;
+  let typingElapsed = null;
+  let typingRetry = null;
+  let waitingInterval = null;
   let toastTimer;
 
   function loadChats() {
@@ -122,13 +128,15 @@
 
   function renderMessages() {
     elements.messages.replaceChildren();
+    typingElapsed = null;
+    typingRetry = null;
     const chat = activeChat();
     if (!chat || !chat.messages.length) {
       elements.messages.append(createWelcome());
       return;
     }
     chat.messages.forEach(message => elements.messages.append(createMessage(message)));
-    if (busy) elements.messages.append(createTyping());
+    if (busy && chat.id === busyChatId) elements.messages.append(createTyping());
     elements.messages.scrollTop = elements.messages.scrollHeight;
   }
 
@@ -205,8 +213,58 @@
     dots.className = "typing";
     dots.setAttribute("aria-label", "Готовит ответ");
     for (let i = 0; i < 3; i++) dots.append(document.createElement("span"));
+    const status = document.createElement("span");
+    status.className = "typing-status";
+    status.textContent = "Mini-brain печатает ответ…";
+    typingElapsed = document.createElement("span");
+    typingElapsed.className = "typing-elapsed";
+    typingElapsed.setAttribute("aria-hidden", "true");
+    typingRetry = document.createElement("span");
+    typingRetry.className = "typing-retry";
+    typingRetry.setAttribute("aria-hidden", "true");
+    typingRetry.hidden = true;
+    dots.append(status, typingElapsed, typingRetry);
     article.append(label, dots);
     return article;
+  }
+
+  function updateTypingIndicator() {
+    if (typingElapsed && requestStartedAt) {
+      const elapsedSeconds = Math.floor((Date.now() - requestStartedAt) / 1000);
+      typingElapsed.textContent = `${elapsedSeconds} с`;
+    }
+    if (typingRetry && retryUntil) {
+      const remainingSeconds = Math.max(0, Math.ceil((retryUntil - Date.now()) / 1000));
+      typingRetry.textContent = `Повтор через ${remainingSeconds} с`;
+      typingRetry.hidden = remainingSeconds === 0;
+    }
+  }
+
+  function retryDelaySeconds(response) {
+    if (response.status !== 429) return null;
+    const header = response.headers.get("Retry-After");
+    if (!header || !/^\d+$/.test(header)) return null;
+    const seconds = Number(header);
+    return seconds > 0 && seconds <= 60 ? seconds : null;
+  }
+
+  async function requestChatResponse(base, messages) {
+    const send = () => fetch(`${base}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages }),
+      signal: AbortSignal.timeout(90000)
+    });
+    const response = await send();
+    const delaySeconds = retryDelaySeconds(response);
+    if (delaySeconds === null) return response;
+
+    retryUntil = Date.now() + delaySeconds * 1000;
+    updateTypingIndicator();
+    await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+    retryUntil = 0;
+    updateTypingIndicator();
+    return send();
   }
 
   function appendMarkdown(container, markdown) {
@@ -326,18 +384,17 @@
     elements.input.value = "";
     resizeInput();
     busy = true;
+    busyChatId = chat.id;
+    requestStartedAt = Date.now();
     saveChats();
     render();
+    updateTypingIndicator();
+    waitingInterval = setInterval(updateTypingIndicator, 1000);
 
     try {
       const base = (window.MINI_BRAIN_CONFIG?.apiBaseUrl || "").trim().replace(/\/+$/, "");
       if (!base) throw new Error("Сервер пока не подключён. Укажите адрес API в файле config.js.");
-      const response = await fetch(`${base}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: chat.messages.slice(-MAX_HISTORY) }),
-        signal: AbortSignal.timeout(90000)
-      });
+      const response = await requestChatResponse(base, chat.messages.slice(-MAX_HISTORY));
       const data = await response.json().catch(() => null);
       if (!response.ok) {
         const detail = typeof data?.detail === "string" ? data.detail : "Сервер не смог обработать запрос.";
@@ -350,13 +407,18 @@
       chat.updatedAt = Date.now();
     } catch (error) {
       const text = error.name === "TimeoutError" || error.name === "AbortError"
-        ? "Ответ занимает слишком много времени. Проверьте соединение и попробуйте ещё раз."
+        ? "Сервер не ответил вовремя. Запрос не повторён автоматически, чтобы избежать возможной повторной отправки."
         : error instanceof TypeError
-          ? "Не удалось связаться с сервером. Проверьте подключение и адрес API."
+          ? "Не удалось связаться с сервером. Запрос не повторён автоматически, так как сервер мог уже его получить."
           : error.message || "Не удалось получить ответ.";
       chat.messages.push({ role: "assistant", content: `Не получилось отправить сообщение. ${text}` });
     } finally {
+      clearInterval(waitingInterval);
+      waitingInterval = null;
       busy = false;
+      busyChatId = null;
+      requestStartedAt = 0;
+      retryUntil = 0;
       saveChats();
       render();
       elements.input.focus();

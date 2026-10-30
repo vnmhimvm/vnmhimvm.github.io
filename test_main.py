@@ -103,6 +103,8 @@ class ChatApiTests(unittest.TestCase):
             )
         self.assertTrue(all(response.status_code == 503 for response in responses))
         self.assertEqual(limited.status_code, 429)
+        self.assertGreaterEqual(int(limited.headers["retry-after"]), 1)
+        self.assertLessEqual(int(limited.headers["retry-after"]), 60)
 
     def test_cors_is_limited_to_configured_origin(self):
         allowed = self.client.options(
@@ -123,6 +125,11 @@ class ChatApiTests(unittest.TestCase):
         )
         self.assertEqual(allowed.headers.get("access-control-allow-origin"), "https://vnmhimvm.github.io")
         self.assertNotIn("access-control-allow-origin", blocked.headers)
+        health = self.client.get(
+            "/health",
+            headers={"Origin": "https://vnmhimvm.github.io"},
+        )
+        self.assertEqual(health.headers.get("access-control-expose-headers"), "Retry-After")
 
 
 if __name__ == "__main__":
