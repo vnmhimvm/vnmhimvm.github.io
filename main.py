@@ -91,6 +91,7 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
+    expose_headers=["Retry-After"],
 )
 
 
@@ -112,7 +113,12 @@ async def chat(payload: ChatRequest, request: Request):
     client_ip = request.client.host if request.client else "unknown"
     recent_requests = [sent_at for sent_at in requests_by_ip.get(client_ip, []) if now - sent_at < 60]
     if len(recent_requests) >= MAX_REQUESTS_PER_MINUTE:
-        raise HTTPException(status_code=429, detail="Слишком много запросов. Подождите минуту и попробуйте ещё раз.")
+        retry_after = max(1, int(60 - (now - min(recent_requests)) + 0.999))
+        raise HTTPException(
+            status_code=429,
+            detail="Слишком много запросов. Подождите немного и попробуйте ещё раз.",
+            headers={"Retry-After": str(retry_after)},
+        )
     requests_by_ip[client_ip] = [*recent_requests, now]
     if len(requests_by_ip) > 10_000:
         for ip, timestamps in list(requests_by_ip.items()):
